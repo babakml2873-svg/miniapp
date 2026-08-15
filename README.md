@@ -8,3 +8,7 @@
 
 بک‌اند جدول امتیازات (Telegram Serverless) و مستندات کامل در ریپوی اصلی،
 زیر `miniapp/`.
+
+## آدرس زنده
+
+https://babakml2873-svg.github.io/miniapp/
