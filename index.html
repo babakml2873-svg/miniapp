@@ -288,10 +288,11 @@
   // browser (handy for local testing) when Telegram.WebApp is absent.
   const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
 
-  // Public link to this Mini App, used for the share button.
-  // Fill it in after you register the app with @BotFather, e.g.
-  //   const SHARE_LINK = 'https://t.me/YourBot/candle';
-  const SHARE_LINK = '';
+  // Where the share button points. This is the bot itself rather than a
+  // direct app link on purpose: scores only reach the leaderboard when the
+  // game is opened from the bot's reply-keyboard button, so sending a friend
+  // to the bot puts them on the one launch path that can submit.
+  const SHARE_LINK = 'https://t.me/canleagah_bot';
 
   function tgVersionAtLeast(v){
     try{ return !!(tg && tg.isVersionAtLeast && tg.isVersionAtLeast(v)); }catch(e){ return false; }
