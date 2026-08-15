@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0f1720">
+<title>بازی کندل آگاه</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --green:#12b866;
+    --green-dark:#0d8f4f;
+    --red:#e53e3e;
+    --red-dark:#b52d2d;
+    --bg1:#0f1720;
+    --bg2:#182635;
+    --card:#101a24;
+    --line:#3a4a5a;
+    --muted:#8fa3b3;
+    /* filled in from the Telegram viewport / safe-area insets at runtime */
+    --app-h:100dvh;
+    --safe-top:0px;
+    --safe-bottom:0px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent; user-select:none; -webkit-user-select:none;}
+  html,body{
+    margin:0; padding:0;
+    height:100%;
+    overflow:hidden;
+    overscroll-behavior:none;
+    touch-action:manipulation;
+    font-family:'Vazirmatn', Tahoma, sans-serif;
+    background:linear-gradient(160deg,var(--bg1),var(--bg2));
+    color:#eaf2f7;
+  }
+  body{
+    display:flex; align-items:stretch; justify-content:center;
+  }
+  .app{
+    width:100%; max-width:480px;
+    height:var(--app-h);
+    background:var(--card);
+    display:flex; flex-direction:column;
+    position:relative; overflow:hidden;
+    padding-top:var(--safe-top);
+    padding-bottom:var(--safe-bottom);
+  }
+  /* desktop Telegram shows the app in a wide window - keep the phone framing there */
+  @media (min-width:520px) and (min-height:700px){
+    body{ align-items:center; }
+    .app{
+      height:min(var(--app-h), 844px);
+      border-radius:28px;
+      box-shadow:0 20px 60px rgba(0,0,0,.5);
+    }
+  }
+  .screen{ display:none; flex-direction:column; flex:1; padding:22px 20px; min-height:0; }
+  .screen.active{ display:flex; }
+
+  /* ---- START SCREEN ---- */
+  h1{ font-size:22px; font-weight:900; margin:6px 0 2px; text-align:center; }
+  .subtitle{ text-align:center; color:var(--muted); font-size:13px; margin-bottom:18px; }
+  .greeting{ text-align:center; font-size:13px; color:#8de1ff; font-weight:700; margin-bottom:8px; min-height:18px; }
+  .rules-box{
+    background:rgba(255,255,255,.04);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:16px;
+    padding:16px 16px;
+    font-size:13.5px;
+    line-height:2;
+    color:#d9e4ec;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  .rules-box b{ color:#fff; }
+  .rules-box .tag-green{ color:var(--green); font-weight:700; }
+  .rules-box .tag-red{ color:var(--red); font-weight:700; }
+  .timer-pill{
+    align-self:center;
+    margin:18px auto 6px;
+    background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.1);
+    border-radius:999px;
+    padding:8px 22px;
+    font-weight:700;
+    font-size:14px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .timer-pill span{ color:#fff; font-size:16px; }
+  .spacer{ flex:1; min-height:10px; }
+  .btn-primary{
+    background:linear-gradient(135deg,var(--green),var(--green-dark));
+    color:#fff; border:none; border-radius:14px;
+    padding:16px; font-size:16px; font-weight:900;
+    font-family:inherit;
+    cursor:pointer; box-shadow:0 8px 20px rgba(18,184,102,.35);
+  }
+  .btn-primary:active{ transform:scale(.98); }
+  .btn-secondary{
+    background:rgba(255,255,255,.08);
+    color:#fff; border:1px solid rgba(255,255,255,.15); border-radius:14px;
+    padding:14px; font-size:14px; font-weight:700;
+    font-family:inherit;
+    cursor:pointer;
+  }
+  .btn-secondary:active{ transform:scale(.98); }
+
+  /* ---- GAME SCREEN ---- */
+  .topbar{
+    display:flex; justify-content:space-between; align-items:center;
+    gap:8px;
+    margin-bottom:8px;
+  }
+  .stat{
+    background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:12px;
+    padding:8px 10px;
+    text-align:center; flex:1;
+    position:relative;
+  }
+  .stat .label{ font-size:10px; color:var(--muted); }
+  .stat .value{ font-size:20px; font-weight:900; }
+  #timeStat .value{ color:#ffd166; }
+  #scoreStat .value{ color:#8de1ff; }
+  #bestStat .value{ color:#ffb14d; }
+  .combo-badge{
+    position:absolute; top:-9px; left:50%; transform:translateX(-50%);
+    background:#ff8a00; color:#1a1000; font-size:10px; font-weight:900;
+    padding:2px 8px; border-radius:999px; white-space:nowrap;
+    box-shadow:0 4px 10px rgba(255,138,0,.4);
+    display:none;
+  }
+  .progress-track{
+    height:6px; border-radius:4px; overflow:hidden;
+    background:rgba(255,255,255,.08);
+    margin-bottom:14px;
+  }
+  .progress-fill{
+    height:100%; width:100%;
+    background:linear-gradient(90deg,#8de1ff,#4dd6ff);
+  }
+
+  .canvas-wrap{
+    position:relative;
+    border-radius:16px;
+    overflow:hidden;
+    background:#0a1219;
+    border:1px solid rgba(255,255,255,.08);
+    margin-bottom:16px;
+    flex:1;
+    min-height:0;
+  }
+  canvas{ display:block; width:100%; height:100%; }
+
+  .controls{
+    display:flex; gap:14px;
+  }
+  .ctrl-btn{
+    flex:1;
+    border:none; border-radius:18px;
+    padding:24px 0;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    touch-action:none;
+    box-shadow:0 8px 18px rgba(0,0,0,.35);
+  }
+  .ctrl-btn:active{ transform:scale(.95); }
+  .ctrl-up{ background:linear-gradient(135deg,var(--green),var(--green-dark)); }
+  .ctrl-down{ background:linear-gradient(135deg,var(--red),var(--red-dark)); }
+  .ctrl-btn svg{ width:34px; height:34px; }
+
+  /* ---- END SCREEN ---- */
+  .end-center{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:14px; }
+  .end-score{ font-size:56px; font-weight:900; }
+  .end-label{ color:var(--muted); font-size:14px; }
+  .best-row{
+    display:flex; gap:12px; margin-top:8px;
+  }
+  .best-card{
+    background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:14px;
+    padding:12px 22px;
+  }
+  .best-card .n{ font-size:24px; font-weight:900; }
+  .best-card .l{ font-size:11px; color:var(--muted); margin-top:2px; }
+  .new-record{ color:#ffd166; font-weight:800; font-size:13px; }
+  .end-actions{ display:flex; flex-direction:column; gap:10px; }
+  .hint{ font-size:11.5px; line-height:1.7; color:var(--muted); text-align:center; min-height:0; }
+  .hint.warn{ color:#ffd166; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- START SCREEN -->
+  <div class="screen active" id="screen-start">
+    <h1>بازی کندل آگاه</h1>
+    <div class="subtitle">سرعت تصمیم‌گیریت رو محک بزن!</div>
+    <div class="greeting" id="greeting"></div>
+    <div class="rules-box">
+      کندل‌ها از سمت چپ وارد صفحه می‌شن و به سمت راست حرکت می‌کنن.
+      یک خط چین عمودی وسط صفحه، <b>خط مبنای امتیازگیری</b> هست.
+      روی هر کندل اسم یکی از صندوق‌های آگاه و امتیازش (بین ۱ تا ۳) نوشته شده.<br><br>
+      وقتی یک کندل <b>دقیقاً به خط وسط رسید</b>:
+      <br>• اگه <span class="tag-green">سبز</span> بود، دکمه <span class="tag-green">سبز (فلش بالا)</span> رو بزن.
+      <br>• اگه <span class="tag-red">قرمز</span> بود، دکمه <span class="tag-red">قرمز (فلش پایین)</span> رو بزن.
+      <br><br>
+      اگه درست بزنی، به‌اندازه امتیاز کندل جمع می‌کنی؛ اگه اشتباه بزنی همون مقدار رو از دست می‌دی.
+      سرعت کندل‌ها کم‌کم از حالت عادی به تند تبدیل می‌شه. مراقب باش!
+    </div>
+    <div class="timer-pill">⏱ زمان بازی: <span>۳۰ ثانیه</span></div>
+    <div class="spacer"></div>
+    <button class="btn-primary" id="btnStart">شروع بازی</button>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div class="screen" id="screen-game">
+    <div class="topbar">
+      <div class="stat" id="timeStat">
+        <div class="label">زمان</div>
+        <div class="value" id="timeValue">30</div>
+      </div>
+      <div class="stat" id="scoreStat">
+        <div class="combo-badge" id="comboBadge">🔥 x2</div>
+        <div class="label">امتیاز</div>
+        <div class="value" id="scoreValue">0</div>
+      </div>
+      <div class="stat" id="bestStat">
+        <div class="label">رکورد</div>
+        <div class="value" id="bestLiveValue">0</div>
+      </div>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="canvas-wrap">
+      <canvas id="gameCanvas"></canvas>
+    </div>
+    <div class="controls">
+      <button class="ctrl-btn ctrl-up" id="btnUp" aria-label="سبز">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+      </button>
+      <button class="ctrl-btn ctrl-down" id="btnDown" aria-label="قرمز">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- END SCREEN -->
+  <div class="screen" id="screen-end">
+    <div class="end-center">
+      <div>
+        <div class="end-label">امتیاز نهایی شما</div>
+        <div class="end-score" id="finalScore">0</div>
+        <div class="new-record" id="newRecordTag" style="visibility:hidden;">🎉 رکورد جدید!</div>
+      </div>
+      <div class="best-row">
+        <div class="best-card">
+          <div class="n" id="currentRunValue">0</div>
+          <div class="l">این دور</div>
+        </div>
+        <div class="best-card">
+          <div class="n" id="bestValue">0</div>
+          <div class="l">بهترین رکورد</div>
+        </div>
+      </div>
+    </div>
+    <div class="end-actions">
+      <button class="btn-primary" id="btnRetry">بازی دوباره</button>
+      <button class="btn-secondary" id="btnSubmit">ثبت در جدول امتیازات</button>
+      <button class="btn-secondary" id="btnShare">اشتراک‌گذاری نتیجه</button>
+      <div class="hint" id="submitHint"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ================= Telegram Mini App bridge =================
+  // Everything here degrades gracefully so the page still runs in a plain
+  // browser (handy for local testing) when Telegram.WebApp is absent.
+  const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+
+  // Public link to this Mini App, used for the share button.
+  // Fill it in after you register the app with @BotFather, e.g.
+  //   const SHARE_LINK = 'https://t.me/YourBot/candle';
+  const SHARE_LINK = '';
+
+  function tgVersionAtLeast(v){
+    try{ return !!(tg && tg.isVersionAtLeast && tg.isVersionAtLeast(v)); }catch(e){ return false; }
+  }
+  function safeCall(fn){ try{ fn(); }catch(e){} }
+
+  function initTelegram(){
+    if(!tg) return;
+    safeCall(() => tg.ready());
+    safeCall(() => tg.expand());
+    safeCall(() => tg.setHeaderColor('#0f1720'));
+    safeCall(() => tg.setBackgroundColor('#101a24'));
+    // stop the swipe-down-to-close gesture from firing while the player taps
+    if(tgVersionAtLeast('7.7')) safeCall(() => tg.disableVerticalSwipes());
+    safeCall(() => tg.onEvent('viewportChanged', applyViewport));
+    safeCall(() => tg.onEvent('safeAreaChanged', applyViewport));
+    safeCall(() => tg.onEvent('contentSafeAreaChanged', applyViewport));
+    safeCall(() => tg.onEvent('backButtonClicked', onBackButton));
+  }
+
+  // ---------- viewport / safe area ----------
+  function applyViewport(){
+    const root = document.documentElement;
+    const h = (tg && tg.viewportStableHeight) ? tg.viewportStableHeight : window.innerHeight;
+    root.style.setProperty('--app-h', h + 'px');
+
+    const top = (tg && tg.contentSafeAreaInset && tg.contentSafeAreaInset.top) || 0;
+    const bottom = (tg && tg.safeAreaInset && tg.safeAreaInset.bottom) || 0;
+    root.style.setProperty('--safe-top', top + 'px');
+    root.style.setProperty('--safe-bottom', bottom + 'px');
+
+    if(state === 'playing') resizeCanvas();
+  }
+
+  // ---------- haptics ----------
+  function hapticImpact(style){
+    if(tg && tg.HapticFeedback && tg.HapticFeedback.impactOccurred){
+      safeCall(() => tg.HapticFeedback.impactOccurred(style || 'light'));
+    }
+  }
+  function hapticNotify(type){
+    if(tg && tg.HapticFeedback && tg.HapticFeedback.notificationOccurred){
+      safeCall(() => tg.HapticFeedback.notificationOccurred(type));
+    }
+  }
+
+  // ---------- back button ----------
+  function showBackButton(show){
+    if(!tg || !tg.BackButton) return;
+    safeCall(() => show ? tg.BackButton.show() : tg.BackButton.hide());
+  }
+  function onBackButton(){
+    if(state === 'playing'){
+      quitToStart();
+    } else {
+      showScreen(screenStart);
+      showBackButton(false);
+    }
+  }
+
+  function setClosingConfirmation(on){
+    if(!tg) return;
+    safeCall(() => on ? tg.enableClosingConfirmation() : tg.disableClosingConfirmation());
+  }
+
+  // ================= game =================
+
+  const FUNDS = ["مثقال","یاقوت","اندوخته","همای","اوان","اگاس","شتاب","اتواگاه","کلید","بانکا","پترواگاه","مروارید","نقراط"];
+
+  const screenStart = document.getElementById('screen-start');
+  const screenGame  = document.getElementById('screen-game');
+  const screenEnd   = document.getElementById('screen-end');
+
+  const btnStart = document.getElementById('btnStart');
+  const btnRetry = document.getElementById('btnRetry');
+  const btnShare = document.getElementById('btnShare');
+  const btnSubmit = document.getElementById('btnSubmit');
+  const submitHintEl = document.getElementById('submitHint');
+  const btnUp    = document.getElementById('btnUp');
+  const btnDown  = document.getElementById('btnDown');
+
+  const timeValueEl  = document.getElementById('timeValue');
+  const scoreValueEl = document.getElementById('scoreValue');
+
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+
+  function showScreen(el){
+    [screenStart, screenGame, screenEnd].forEach(s => s.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  // ---------- storage (best score) ----------
+  // Telegram CloudStorage keeps the record with the player's Telegram account,
+  // so it survives a reinstall and follows them across devices. localStorage is
+  // both the fallback outside Telegram and a fast local mirror.
+  const BEST_KEY = 'candle_game_best';
+  const cloud = (tg && tg.CloudStorage && tgVersionAtLeast('6.9')) ? tg.CloudStorage : null;
+
+  function cloudGet(key){
+    return new Promise(resolve => {
+      let settled = false;
+      const done = v => { if(!settled){ settled = true; resolve(v); } };
+      // never let a silent cloud call stall the round transition
+      setTimeout(() => done(null), 2500);
+      try{
+        cloud.getItem(key, (err, value) => done(err ? null : value));
+      }catch(e){ done(null); }
+    });
+  }
+
+  function localGet(key){
+    try{ return window.localStorage.getItem(key); }catch(e){ return null; }
+  }
+  function localSet(key, value){
+    try{ window.localStorage.setItem(key, value); }catch(e){}
+  }
+
+  async function loadBest(){
+    if(cloud){
+      const v = await cloudGet(BEST_KEY);
+      const n = parseInt(v, 10);
+      if(!isNaN(n)) return n;
+    }
+    return parseInt(localGet(BEST_KEY), 10) || 0;
+  }
+
+  async function saveBest(v){
+    localSet(BEST_KEY, String(v));
+    if(cloud){ try{ cloud.setItem(BEST_KEY, String(v)); }catch(e){} }
+  }
+
+  // ---------- canvas sizing ----------
+  let CW = 0, CH = 260, DPR = Math.max(1, window.devicePixelRatio || 1);
+  function resizeCanvas(){
+    const rect = canvas.parentElement.getBoundingClientRect();
+    CW = rect.width || canvas.parentElement.clientWidth || 300;
+    CH = rect.height || canvas.parentElement.clientHeight || CH;
+    canvas.width = Math.floor(CW * DPR);
+    canvas.height = Math.floor(CH * DPR);
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  window.addEventListener('resize', applyViewport);
+  window.addEventListener('orientationchange', () => setTimeout(applyViewport, 150));
+
+  // ---------- game state ----------
+  const GAME_TIME = 30; // seconds
+  const CANDLE_W = 26;
+  const BODY_W = CANDLE_W * 0.62;
+  const HIT_ZONE = BODY_W / 2 + 5; // must actually overlap the dashed line, not just be "nearby"
+  const CANDLE_GAP = 20;
+  const BASE_SPEED = 55;   // px/s at start
+  const MAX_SPEED  = 230;  // px/s near the end
+
+  let state = 'idle'; // idle | playing | ended
+  let candles = [];
+  let score = 0;
+  let combo = 0;
+  let liveBest = 0;
+  let elapsed = 0;
+  let lastTs = 0;
+  let spawnAcc = 0;
+  let feedbacks = []; // floating +/- texts
+  let rafId = null;
+
+  const comboBadge = document.getElementById('comboBadge');
+  const bestLiveValueEl = document.getElementById('bestLiveValue');
+  const progressFillEl = document.getElementById('progressFill');
+
+  // ---------- piano note sound ----------
+  let audioCtx = null;
+  let pressCount = 0;
+  // pentatonic scale, one octave for each button so up/down feel distinct
+  const SCALE_UP   = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50]; // C5 D5 E5 G5 A5 C6
+  const SCALE_DOWN = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25];  // C4 D4 E4 G4 A4 C5
+
+  function ensureAudio(){
+    if(!audioCtx){
+      try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch(e){ audioCtx = null; }
+    }
+    if(audioCtx && audioCtx.state === 'suspended'){
+      audioCtx.resume().catch(()=>{});
+    }
+  }
+
+  function playPianoNote(freq){
+    if(!audioCtx) return;
+    const now = audioCtx.currentTime;
+
+    const osc1 = audioCtx.createOscillator(); // fundamental
+    const osc2 = audioCtx.createOscillator(); // octave overtone for a fuller "piano-ish" tone
+    osc1.type = 'triangle';
+    osc2.type = 'sine';
+    osc1.frequency.value = freq;
+    osc2.frequency.value = freq * 2;
+
+    const overtoneGain = audioCtx.createGain();
+    overtoneGain.gain.value = 0.18;
+
+    const mainGain = audioCtx.createGain();
+    mainGain.gain.setValueAtTime(0.0001, now);
+    mainGain.gain.exponentialRampToValueAtTime(0.32, now + 0.006); // fast pluck attack
+    mainGain.gain.exponentialRampToValueAtTime(0.0001, now + 1.0); // natural decay
+
+    osc1.connect(mainGain);
+    osc2.connect(overtoneGain);
+    overtoneGain.connect(mainGain);
+    mainGain.connect(audioCtx.destination);
+
+    osc1.start(now); osc2.start(now);
+    osc1.stop(now + 1.05); osc2.stop(now + 1.05);
+  }
+
+  function playPressNote(dir){
+    ensureAudio();
+    if(!audioCtx) return;
+    const scale = dir === 'up' ? SCALE_UP : SCALE_DOWN;
+    const note = scale[pressCount % scale.length];
+    pressCount++;
+    playPianoNote(note);
+  }
+
+  function rand(min,max){ return Math.random()*(max-min)+min; }
+  function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+  function speedFactorAt(t){
+    const p = Math.min(1, t / GAME_TIME);
+    return BASE_SPEED + (MAX_SPEED - BASE_SPEED) * p;
+  }
+
+  function spawnCandle(){
+    const value = pick([1,1,2,2,3]); // weight smaller values a bit more often
+    const isGreen = Math.random() < 0.5;
+    // scale with the actual canvas height so candles look proportionate
+    // however tall the play area ends up being, instead of small fixed pixels
+    const baseFrac = 0.16 + value * 0.13; // value 1 -> .29, 2 -> .42, 3 -> .55 of CH
+    const bodyH = CH * baseFrac + rand(-CH*0.02, CH*0.03);
+    const wickTop = CH * rand(0.05, 0.12);
+    const wickBot = CH * rand(0.05, 0.12);
+    candles.push({
+      x: -CANDLE_W,
+      value,
+      color: isGreen ? 'green' : 'red',
+      bodyH, wickTop, wickBot,
+      fund: pick(FUNDS),
+      judged: false
+    });
+  }
+
+  function resetGame(){
+    candles = [];
+    feedbacks = [];
+    score = 0;
+    combo = 0;
+    pressCount = 0;
+    elapsed = 0;
+    spawnAcc = 0;
+    scoreValueEl.textContent = '0';
+    timeValueEl.textContent = String(GAME_TIME);
+    comboBadge.style.display = 'none';
+    progressFillEl.style.width = '100%';
+  }
+
+  async function startGame(){
+    ensureAudio(); // unlock audio on this user gesture so notes can play later
+    resetGame();
+    liveBest = await loadBest();
+    bestLiveValueEl.textContent = String(liveBest);
+    showScreen(screenGame);
+    showBackButton(true);
+    setClosingConfirmation(true);
+    state = 'playing';
+    // Wait a frame so the screen is actually laid out (display:flex applied)
+    // before we measure its width/height, otherwise the canvas gets size 0.
+    requestAnimationFrame(() => {
+      resizeCanvas();
+      lastTs = performance.now();
+      rafId = requestAnimationFrame(loop);
+    });
+  }
+
+  function stopLoop(){
+    if(rafId){ cancelAnimationFrame(rafId); rafId = null; }
+  }
+
+  function quitToStart(){
+    stopLoop();
+    state = 'idle';
+    setClosingConfirmation(false);
+    showBackButton(false);
+    showScreen(screenStart);
+  }
+
+  function endGame(){
+    state = 'ended';
+    stopLoop();
+    setClosingConfirmation(false);
+    finishRound();
+  }
+
+  async function finishRound(){
+    const best = await loadBest();
+    const isNew = score > best;
+    const newBest = isNew ? score : best;
+    if(isNew) await saveBest(newBest);
+
+    document.getElementById('finalScore').textContent = String(score);
+    document.getElementById('currentRunValue').textContent = String(score);
+    document.getElementById('bestValue').textContent = String(newBest);
+    document.getElementById('newRecordTag').style.visibility = isNew ? 'visible' : 'hidden';
+    hapticNotify(isNew ? 'success' : 'warning');
+    submitHintEl.className = 'hint';
+    submitHintEl.textContent = '';
+    btnSubmit.style.display = tg ? '' : 'none';
+    showScreen(screenEnd);
+    showBackButton(true);
+  }
+
+  function centerX(){ return CW/2; }
+
+  function handlePress(dir){ // dir: 'up' (green) | 'down' (red)
+    if(state !== 'playing') return;
+    playPressNote(dir); // every tap feels like playing a note, hit or miss
+    const cx = centerX();
+    let target = null;
+    let bestDist = Infinity;
+    for(const c of candles){
+      if(c.judged) continue; // each candle can only ever be scored once
+      const d = Math.abs(c.x - cx);
+      if(d <= HIT_ZONE && d < bestDist){
+        bestDist = d; target = c;
+      }
+    }
+    if(!target){ hapticImpact('light'); return; } // nothing on the line -> no score, no penalty
+    target.judged = true;
+    const isGreen = target.color === 'green';
+    const correct = (isGreen && dir === 'up') || (!isGreen && dir === 'down');
+    const delta = correct ? target.value : -target.value;
+    score += delta;
+    scoreValueEl.textContent = String(score);
+    hapticNotify(correct ? 'success' : 'error');
+
+    if(correct){
+      combo++;
+    } else {
+      combo = 0;
+    }
+    if(combo >= 2){
+      comboBadge.style.display = 'block';
+      comboBadge.textContent = '🔥 x' + combo;
+    } else {
+      comboBadge.style.display = 'none';
+    }
+
+    if(score > liveBest){
+      liveBest = score;
+      bestLiveValueEl.textContent = String(liveBest);
+    }
+
+    feedbacks.push({
+      x: cx, y: CH/2, life: 1, text: (delta>0?'+':'') + delta,
+      color: correct ? '#12b866' : '#e53e3e'
+    });
+  }
+
+  // pointerdown instead of click: in a timing game the press has to register
+  // the moment the finger lands, not on release.
+  function bindPress(el, dir){
+    el.addEventListener('pointerdown', e => { e.preventDefault(); handlePress(dir); });
+    el.addEventListener('contextmenu', e => e.preventDefault());
+  }
+  bindPress(btnUp, 'up');
+  bindPress(btnDown, 'down');
+
+  // keyboard for Telegram Desktop
+  window.addEventListener('keydown', e => {
+    if(state !== 'playing') return;
+    if(e.key === 'ArrowUp'){ e.preventDefault(); handlePress('up'); }
+    else if(e.key === 'ArrowDown'){ e.preventDefault(); handlePress('down'); }
+  });
+
+  function loop(ts){
+    const dt = Math.min(0.05, (ts - lastTs) / 1000);
+    lastTs = ts;
+    elapsed += dt;
+
+    if(elapsed >= GAME_TIME){
+      timeValueEl.textContent = '0';
+      endGame();
+      return;
+    }
+    timeValueEl.textContent = String(Math.ceil(GAME_TIME - elapsed));
+    progressFillEl.style.width = Math.max(0, (1 - elapsed/GAME_TIME) * 100) + '%';
+
+    const speed = speedFactorAt(elapsed);
+
+    // spawn
+    spawnAcc += dt * speed;
+    const gapNeeded = CANDLE_W + CANDLE_GAP;
+    if(spawnAcc >= gapNeeded){
+      spawnAcc = 0;
+      spawnCandle();
+    }
+
+    // move
+    for(const c of candles){
+      c.x += speed * dt;
+    }
+    candles = candles.filter(c => c.x < CW + CANDLE_W*2);
+
+    // feedbacks
+    for(const f of feedbacks){ f.life -= dt*0.9; f.y -= dt*30; }
+    feedbacks = feedbacks.filter(f => f.life > 0);
+
+    render();
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function render(){
+    ctx.clearRect(0,0,CW,CH);
+
+    // background grid subtle
+    ctx.fillStyle = '#0a1219';
+    ctx.fillRect(0,0,CW,CH);
+
+    // center dashed line
+    const cx = centerX();
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,.35)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6,6]);
+    ctx.beginPath();
+    ctx.moveTo(cx, 6);
+    ctx.lineTo(cx, CH-6);
+    ctx.stroke();
+    ctx.restore();
+
+    const midY = CH/2;
+
+    for(const c of candles){
+      const x = c.x;
+      const isGreen = c.color === 'green';
+      const color = isGreen ? '#12b866' : '#e53e3e';
+      const glowColor = isGreen ? '#4dffb0' : '#ff7a7a';
+      const top = midY - c.bodyH/2;
+      const bottom = midY + c.bodyH/2;
+      const inZone = !c.judged && Math.abs(x - cx) <= HIT_ZONE;
+
+      ctx.save();
+      if(inZone){
+        ctx.shadowColor = glowColor;
+        ctx.shadowBlur = 22;
+      }
+
+      // wick
+      ctx.strokeStyle = inZone ? glowColor : color;
+      ctx.lineWidth = inZone ? 2.5 : 2;
+      ctx.beginPath();
+      ctx.moveTo(x, top - c.wickTop);
+      ctx.lineTo(x, bottom + c.wickBot);
+      ctx.stroke();
+
+      // body
+      ctx.fillStyle = inZone ? glowColor : color;
+      const bw = BODY_W;
+      ctx.fillRect(x - bw/2, top, bw, c.bodyH);
+      ctx.restore();
+
+      // fund name (above wick)
+      ctx.save();
+      ctx.translate(x, top - c.wickTop - 6);
+      ctx.rotate(-Math.PI/2);
+      ctx.fillStyle = 'rgba(255,255,255,.75)';
+      ctx.font = '600 9px Vazirmatn, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(c.fund, 0, 0);
+      ctx.restore();
+
+      // value (below wick)
+      ctx.fillStyle = color;
+      ctx.font = '900 10px Vazirmatn, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText((isGreen?'+':'-') + c.value, x, bottom + c.wickBot + 6);
+    }
+
+    // floating feedback texts
+    for(const f of feedbacks){
+      ctx.globalAlpha = Math.max(0, f.life);
+      ctx.fillStyle = f.color;
+      ctx.font = '900 22px Vazirmatn, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(f.text, f.x, f.y);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // ---------- share ----------
+  function shareResult(){
+    hapticImpact('medium');
+    const text = 'تو بازی کندل آگاه ' + score + ' امتیاز گرفتم! می‌تونی بزنی؟';
+    const link = SHARE_LINK || location.href;
+    const url = 'https://t.me/share/url?url=' + encodeURIComponent(link) + '&text=' + encodeURIComponent(text);
+    if(tg && tg.openTelegramLink){
+      safeCall(() => tg.openTelegramLink(url));
+    } else {
+      window.open(url, '_blank');
+    }
+  }
+
+  // ---------- leaderboard submit ----------
+  // The serverless backend has no HTTP ingress, so the only way to hand it a
+  // score is sendData(), which arrives as a web_app_data message. It works
+  // ONLY when the app was opened from the bot's reply-keyboard button, and it
+  // closes the app — hence the warning in the hint line.
+  function submitScore(){
+    if(!tg || !tg.sendData){
+      submitHintEl.className = 'hint warn';
+      submitHintEl.textContent = 'ثبت امتیاز فقط داخل تلگرام کار می‌کند.';
+      return;
+    }
+    try{
+      tg.sendData(JSON.stringify({ score: score }));
+      // sendData closes the Mini App, so anything after this rarely runs
+      hapticNotify('success');
+    }catch(e){
+      submitHintEl.className = 'hint warn';
+      submitHintEl.textContent = 'برای ثبت امتیاز، بازی را از دکمهٔ «🎮 بازی کندل آگاه» '
+        + 'در چت ربات باز کن (دستور /start).';
+      hapticNotify('error');
+    }
+  }
+
+  btnStart.addEventListener('click', startGame);
+  btnRetry.addEventListener('click', startGame);
+  btnShare.addEventListener('click', shareResult);
+  btnSubmit.addEventListener('click', submitScore);
+
+  // ---------- boot ----------
+  function greetUser(){
+    const user = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+    const name = user && (user.first_name || user.username);
+    if(name) document.getElementById('greeting').textContent = 'سلام ' + name + ' 👋';
+  }
+
+  initTelegram();
+  applyViewport();
+  greetUser();
+  // warm the record up so the start screen already knows it
+  loadBest().then(v => { liveBest = v; bestLiveValueEl.textContent = String(v); });
+
+  document.addEventListener('gesturestart', e => e.preventDefault()); // no pinch zoom
+})();
+</script>
+</body>
+</html>
